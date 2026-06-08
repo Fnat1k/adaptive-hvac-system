@@ -1,75 +1,72 @@
+import pool from './db';
 
-interface RoomContext {
-    currentTemp: number;     //  (°C)
-    targetTemp: number;      // (Setpoint) (°C)
-    outdoorTemp: number;     //  (°C)
-    expectedOccupancy: number; // Кількість людей за розкладом
+// Інтерфейс для результату прогнозу
+export interface PredictionResult {
+    timeOffsetMinutes: number;
+    predictedTemp: number;
+    hvacActionRequired: boolean;
 }
 
-class AdaptiveClimateController {
-    // Теплофізичні коефіцієнти 
-    private readonly roomCapacity = 1.5;   
-    private readonly wallResistance = 0.8; 
-    private readonly humanHeat = 0.1;      //  (кВт)
-    private readonly hvacPower = -2.0;     // (кВт)
+export class AdaptiveClimateModel {
+    private readonly HEAT_PER_PERSON_W = 100; // Вт тепла від однієї людини
+    private readonly TARGET_TEMP = 22.0; // Цільова комфортна температура
+    private readonly OUTSIDE_TEMP = 30.0; // Для тесту: на вулиці спека
 
     /**
-     * Розрахунок прогнозованої температури на наступний крок (15 хв)
+     * Розраховує прогноз температури для конкретної кімнати
      */
-    public predictNextState(context: RoomContext, hvacLoadPercent: number): number {
-        const { currentTemp, outdoorTemp, expectedOccupancy } = context;
+    public async calculatePrediction(roomId: number, currentTemp: number): Promise<PredictionResult[]> {
+        // 1. Отримуємо фізичні параметри кімнати
+        const roomQuery = await pool.query(
+            'SELECT heat_capacity, thermal_resistance FROM rooms WHERE id = $1',
+            [roomId]
+        );
         
-        const qPeople = expectedOccupancy * this.humanHeat;
+        if (roomQuery.rows.length === 0) {
+            throw new Error('Кімнату не знайдено');
+        }
         
-        const uHvac = this.hvacPower * (hvacLoadPercent / 100);
-        
-        const qWalls = (currentTemp - outdoorTemp) / this.wallResistance;
+        const C = parseFloat(roomQuery.rows[0].heat_capacity);
+        const R = parseFloat(roomQuery.rows[0].thermal_resistance);
 
-        const deltaTemp = (uHvac + qPeople - qWalls) / this.roomCapacity;
-        const predictedTemp = currentTemp + deltaTemp;
+        // 2. Отримуємо розклад (скільки людей буде зараз або найближчим часом)
+        const scheduleQuery = await pool.query(
+            `SELECT expected_people FROM schedules 
+             WHERE room_id = $1 AND start_time <= NOW() + interval '1 hour' AND end_time >= NOW()`,
+            [roomId]
+        );
 
-        return predictedTemp;
-    }
-
-    /**
-     *  підбір потужності для утримання Setpoint
-     */
-    public calculateAdaptiveAction(context: RoomContext): number {
-        console.log(`[Аналіз] Поточна: ${context.currentTemp}°C | Цільова: ${context.targetTemp}°C`);
-        console.log(`[Розклад] Очікується людей: ${context.expectedOccupancy}`);
-
-        
-        let predictedTemp = this.predictNextState(context, 0);
-        console.log(`[Прогноз] Температура через 15 хв без HVAC: ${predictedTemp.toFixed(2)}°C`);
-
-        
-        if (predictedTemp > context.targetTemp + 0.5) {
-            console.log(`[Дія] Виявлено відхилення прогнозу. Розрахунок керуючого впливу...`);
-            
-            for (let load = 10; load <= 100; load += 10) {
-                predictedTemp = this.predictNextState(context, load);
-                if (predictedTemp <= context.targetTemp) {
-                    console.log(`[Успіх] Оптимальна потужність HVAC: ${load}%`);
-                    return load;
-                }
-            }
-            return 100; // Якщо не справляється - вмикаємо на максимум
+        let peopleCount = 0;
+        if (scheduleQuery.rows.length > 0) {
+            peopleCount = scheduleQuery.rows[0].expected_people;
         }
 
-        console.log(`[Дія] Втручання не потрібне. HVAC: 0%`);
-        return 0;
+        const Q_people = peopleCount * this.HEAT_PER_PERSON_W;
+        
+        // 3. Симулюємо зміну температури на 60 хвилин вперед (крок 1 хвилина)
+        const dt = 60; // 60 секунд = 1 хвилина
+        let T = currentTemp;
+        const trajectory: PredictionResult[] = [];
+
+        for (let minute = 1; minute <= 60; minute++) {
+            // Теплові втрати (або надходження) через стіни
+            const Q_walls = (this.OUTSIDE_TEMP - T) / R; 
+            
+            // Загальний тепловий баланс
+            const Q_total = Q_people + Q_walls;
+
+            // Зміна температури
+            const deltaT = (Q_total * dt) / C;
+            T = T + deltaT;
+
+            trajectory.push({
+                timeOffsetMinutes: minute,
+                predictedTemp: parseFloat(T.toFixed(2)),
+                // Якщо прогноз показує, що стане спекотніше 24 градусів — треба діяти проактивно
+                hvacActionRequired: T > 24.0 
+            });
+        }
+
+        return trajectory;
     }
 }
-
-// === TEST ===
-const controller = new AdaptiveClimateController();
-
-//  зараз нормально (22.5), але за розкладом прийде 30 людей
-const testContext: RoomContext = {
-    currentTemp: 22.5,
-    targetTemp: 22.0,
-    outdoorTemp: 28.0,      // На вулиці спекотно
-    expectedOccupancy: 30   // Початок лекції
-};
-
-controller.calculateAdaptiveAction(testContext);
