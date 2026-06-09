@@ -56,27 +56,34 @@ function closeModal() {
     editingRoomId = null;
 }
 
-// ЗБЕРЕЖЕННЯ АБО ОНОВЛЕННЯ (POST / PUT)
+// --- ЗБЕРЕЖЕННЯ АБО ОНОВЛЕННЯ (POST / PUT) ---
 async function saveRoom() {
     const name = document.getElementById('modal-name').value;
     const people = document.getElementById('modal-people').value;
     const power = document.getElementById('modal-power').value;
-    const initTemp = document.getElementById('modal-init-temp').value; // Зчитуємо температуру
+    const initTemp = document.getElementById('modal-init-temp').value; 
 
     if (!name) return alert('Room name is required!');
 
     const method = editingRoomId ? 'PUT' : 'POST';
     const url = editingRoomId ? `/api/rooms/${editingRoomId}` : '/api/rooms';
+    
+    // 1. Дістаємо токен із пам'яті браузера
+    const token = localStorage.getItem('jwt_token');
 
     try {
         const response = await fetch(url, {
             method: method,
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                // 2. Додаємо токен у заголовки запиту
+                'Authorization': `Bearer ${token}` 
+            },
             body: JSON.stringify({ 
                 name: name, 
                 simulation_people: parseInt(people), 
                 ac_power_w: parseInt(power),
-                target_temperature: parseFloat(initTemp) // Передаємо її як цільову/стартову
+                target_temperature: parseFloat(initTemp) 
             })
         });
 
@@ -84,15 +91,38 @@ async function saveRoom() {
         if (data.success) {
             closeModal();
             loadRoomsTable();
+        } else {
+            // Якщо токен недійсний або його немає
+            alert('Помилка доступу: ' + (data.error || 'Unauthorized'));
         }
-    } catch (error) { console.error("Save error:", error); }
+    } catch (error) { 
+        console.error("Save error:", error); 
+    }
 }
 
+// --- ВИДАЛЕННЯ КІМНАТИ ---
 async function deleteRoom(id) {
     if (!confirm('Are you sure you want to delete this room?')) return;
 
+    // 1. Дістаємо токен із пам'яті браузера
+    const token = localStorage.getItem('jwt_token');
+
     try {
-        await fetch(`/api/rooms/${id}`, { method: 'DELETE' });
-        loadRoomsTable(); 
-    } catch (error) { console.error("Delete error:", error); }
+        const response = await fetch(`/api/rooms/${id}`, { 
+            method: 'DELETE',
+            headers: {
+                // 2. Додаємо токен у заголовки запиту
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            loadRoomsTable(); 
+        } else {
+            alert('Помилка доступу: ' + (data.error || 'Unauthorized'));
+        }
+    } catch (error) { 
+        console.error("Delete error:", error); 
+    }
 }

@@ -1,11 +1,47 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
+const JWT_SECRET = 'smart_climate_secret_2026';
 import pool from './db';
 import { AdaptiveClimateModel } from './adaptive-model';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Middleware для валідації JWT-токена
+const authenticateJWT = (req: any, res: any, next: any) => {
+    const authHeader = req.headers.authorization;
+
+    if (authHeader) {
+        const token = authHeader.split(' ')[1]; // Відсікаємо слово "Bearer"
+
+        jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+            if (err) {
+                return res.status(403).json({ success: false, error: 'Token is invalid or expired' });
+            }
+            req.user = user;
+            next(); // Токен правильний, пропускаємо запит далі
+        });
+    } else {
+        res.status(401).json({ success: false, error: 'Unauthorized: Missing token' });
+    }
+};
+
 app.use(express.json());
+//  Авторизація та видача JWT 
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    
+    // Перевірка адміна
+    if (username === 'admin' && password === 'admin') {
+        // Генеруємо токен. Він містить роль "admin" і діє 8 годин.
+        const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: '8h' });
+        
+        // Відправляємо токен на фронтенд
+        res.json({ success: true, token: token });
+    } else {
+        res.status(401).json({ success: false, message: 'Invalid username or password' });
+    }
+});
 app.use(express.static('public')); 
 
 // прогностична модель
@@ -145,7 +181,7 @@ app.post('/api/rooms/:id/settings', async (req, res) => {
 });
 
     // --- Створення нової кімнати ---
-app.post('/api/rooms', async (req, res) => {
+app.post('/api/rooms', authenticateJWT, async (req, res) => {
     try {
         // Забираємо target_temperature з запиту фронтенду
         const { name, simulation_people, ac_power_w, target_temperature } = req.body;
@@ -165,19 +201,33 @@ app.post('/api/rooms', async (req, res) => {
 });
 
 // ---  Видалення кімнати ---
-app.delete('/api/rooms/:id', async (req, res) => {
+app.delete('/api/rooms/:id', authenticateJWT, async (req, res) => {
     try {
         const roomId = req.params.id;
-        // Видаляємо кімнату (зв'язані пристрої та телеметрію варто теж видаляти каскадно, але поки вистачить цього)
+
+        // 1. Видаляємо телеметрію тих пристроїв, які належать цій кімнаті
+        await pool.query(
+            'DELETE FROM telemetry WHERE device_id IN (SELECT id FROM devices WHERE room_id = $1)', 
+            [roomId]
+        ); 
+        
+        // 2. Тепер безпечно видаляємо самі пристрої в цій кімнаті
+        await pool.query('DELETE FROM devices WHERE room_id = $1', [roomId]); 
+        
+        // 3. Видаляємо розклади
+        await pool.query('DELETE FROM schedules WHERE room_id = $1', [roomId]); 
+        
+        // 4. І тільки тепер безпечно видаляємо саму кімнату з таблиці rooms
         await pool.query('DELETE FROM rooms WHERE id = $1', [roomId]);
+
         res.json({ success: true });
     } catch (error) {
         console.error('Помилка видалення:', error);
-        res.status(500).json({ success: false, error: 'Помилка видалення' });
+        res.status(500).json({ success: false, error: 'Помилка бази даних при видаленні' });
     }
 });
     // ---  Оновлення кімнати  ---
-app.put('/api/rooms/:id', async (req, res) => {
+app.put('/api/rooms/:id', authenticateJWT, async (req, res) => {
     try {
         const roomId = req.params.id;
         const { name, simulation_people, ac_power_w } = req.body;
