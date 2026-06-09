@@ -1,0 +1,54 @@
+/* Базові налаштування для дашборду */
+body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+#status-badge {
+    transition: all 0.3s ease-in-out;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #0f172a; 
+}
+::-webkit-scrollbar-thumb {
+    background: #334155; 
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #475569; 
+}
+/*  ADMIN PANEL */
+
+#room-modal {
+    transition: opacity 0.25s ease-out;
+}
+
+#rooms-table-body tr {
+    transition: background-color 0.15s ease-in-out;
+}
+#rooms-table-body tr:hover {
+    background-color: #f8fafc;
+}
+
+#room-modal input:focus {
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+#room-modal > div {
+    animation: modalScaleUp 0.2s ease-out forwards;
+}
+
+@keyframes modalScaleUp {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

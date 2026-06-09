@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Room Management</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans p-6 min-h-screen">
+    <div class="max-w-5xl mx-auto">
+        
+        <header class="flex justify-between items-center mb-8 border-b border-slate-200 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-700">Admin Control Panel</h1>
+                <p class="text-slate-400 text-sm mt-1">Manage office zones and HVAC parameters</p>
+            </div>
+            <div class="flex gap-4 items-center">
+                <a href="/index.html" class="text-emerald-600 hover:text-emerald-700 text-sm font-semibold transition">← Back to Dashboard</a>
+                <button onclick="logout()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold transition">Sign Out</button>
+            </div>
+        </header>
+
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-slate-700">Office Rooms</h2>
+                <button onclick="openModal()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition">
+                    + Add New Room
+                </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-slate-400 text-sm font-semibold uppercase tracking-wider">
+                            <th class="pb-3 w-1/12">ID</th>
+                            <th class="pb-3 w-4/12">Room Name</th>
+                            <th class="pb-3 w-2/12">Capacity</th>
+                            <th class="pb-3 w-2/12">AC Power</th>
+                            <th class="pb-3 w-3/12 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rooms-table-body" class="text-sm text-slate-600 divide-y divide-slate-100">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="room-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 transform transition-all">
+            <h3 id="modal-title" class="text-xl font-bold text-slate-800 mb-4">Create New Room</h3>
+            
+            <div class="space-y-4 mb-6">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Room Name</label>
+                    <input type="text" id="modal-name" placeholder="e.g. Server Room" class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Max People</label>
+                        <input type="number" id="modal-people" value="10" class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">AC Power (W)</label>
+                        <input type="number" id="modal-power" value="3500" step="500" class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:border-emerald-500">
+                    </div>
+                    <div class="mt-4">
+    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Initial / Target Temp (°C)</label>
+    <input type="number" id="modal-init-temp" value="22" step="0.5" class="w-full border border-slate-300 rounded-lg p-2 focus:outline-none focus:border-emerald-500">
+</div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button onclick="closeModal()" class="px-4 py-2 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-lg transition">Cancel</button>
+                <button onclick="saveRoom()" class="px-4 py-2 text-sm font-bold text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg shadow-sm transition">Save Room</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/admin.js"></script>
+</body>
+</html>
