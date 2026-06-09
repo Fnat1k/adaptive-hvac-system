@@ -210,6 +210,55 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+    //  Отримання 5-денної аналітики для конкретної кімнати 
+app.get('/api/analytics/:roomId', async (req, res) => {
+    try {
+        const roomId = req.params.roomId;
+        
+        // Отримуємо параметри кімнати, щоб від них відштовхнутися
+        const roomResult = await pool.query('SELECT * FROM rooms WHERE id = $1', [roomId]);
+        if (roomResult.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Кімнату не знайдено' });
+        }
+        
+        const room = roomResult.rows[0];
+        const acPowerKw = room.ac_power_w / 1000;
+        const people = room.simulation_people;
+
+        // Генерація історичних даних за 5 днів (Понеділок - П'ятниця)
+        // Базова економія залежить від людей (чим більше людей, тим частіше кондиціонер працює, але предиктивна система економить більше)
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+        const businessTariff = 8.0; // Тариф на світло для бізнесу (грн/кВт·год)
+        const co2Factor = 0.45;     // Коефіцієнт викидів CO2 в Україні (кг/кВт·год)
+
+        const analyticsData = days.map((day, index) => {
+            // Випадковий коефіцієнт погоди (від 0.7 до 1.3), щоб графік не був плоскою лінією
+            const weatherFactor = 0.7 + Math.random() * 0.6;
+            
+            // Рахуємо базові кВт·год: приблизно від 20% до 50% від максимальної роботи кондера за 8 годин
+            const savedKwh = parseFloat((acPowerKw * 8 * (0.2 + (people * 0.005)) * weatherFactor).toFixed(2));
+            const savedUah = parseFloat((savedKwh * businessTariff).toFixed(2));
+            const savedCo2 = parseFloat((savedKwh * co2Factor).toFixed(2));
+
+            return {
+                day,
+                savedKwh,
+                savedUah,
+                savedCo2
+            };
+        });
+
+        res.json({
+            success: true,
+            roomName: room.name,
+            data: analyticsData
+        });
+    } catch (error) {
+        console.error('Помилка аналітики:', error);
+        res.status(500).json({ success: false, error: 'Помилка сервера' });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Сервер запущено на http://localhost:${PORT}`);
 });

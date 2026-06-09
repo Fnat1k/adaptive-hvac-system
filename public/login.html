@@ -2,24 +2,26 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>Log in</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Climate - Log in</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-slate-50 flex items-center justify-center h-screen font-sans">
     <div class="bg-white p-8 rounded-2xl shadow-xl w-96 border border-slate-200">
-        <h2 class="text-2xl font-bold text-emerald-600 mb-6 text-center">Log in</h2>
+        <h2 class="text-2xl font-bold text-emerald-600 mb-6 text-center">Admin Login</h2>
         <div class="space-y-4">
             <div>
                 <label class="text-slate-500 text-sm font-semibold">Username</label>
-                <input id="user" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 mt-1 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
+                <input id="user" type="text" value="admin" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 mt-1 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
             </div>
             <div>
                 <label class="text-slate-500 text-sm font-semibold">Password</label>
-                <input id="pass" type="password" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 mt-1 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
+                <input id="pass" type="password" value="admin" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-800 mt-1 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500">
             </div>
-            <button onclick="login()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded-lg transition mt-6 shadow-md">Увійти</button>
+            <button onclick="login()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded-lg transition mt-6 shadow-md">Sign In</button>
         </div>
     </div>
+
 <script>
     async function login() {
         const user = document.getElementById('user').value;
@@ -35,19 +37,20 @@
             const data = await response.json();
 
             if (data.success) {
-                // Якщо сервер сказав "ок", записуємо секретний ключ сесії в браузер
+                // 1. Зберігаємо криптографічний JWT-токен
+                localStorage.setItem('jwt_token', data.token);
+                
+                // 2. Залишаємо прапорець для UI (щоб твої кнопки показувалися)
                 sessionStorage.setItem('isAuthenticated', 'true');
-                sessionStorage.setItem('userRole', data.role);
                 
-                
-                window.location.href = '/';
+                // 3. Переходимо на головну
+                window.location.href = '/index.html';
             } else {
-                // Якщо сервер не впізнав користувача 
-                alert(data.message || 'Помилка доступу');
+                alert(data.message || 'Invalid credentials');
             }
         } catch (error) {
-            console.error("Помилка авторизації:", error);
-            alert('Помилка з\'єднання з сервером');
+            console.error("Login Error:", error);
+            alert('Server connection error');
         }
     }
 </script>
